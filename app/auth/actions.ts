@@ -13,11 +13,16 @@ export async function signUp(formData: {
 }) {
   const supabase = await createClient()
 
+  // กำหนด URL สำหรับ Redirect (ใช้ Localhost ถ้าไม่มี ENV)
+  const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+    : "http://localhost:3000/dashboard"
+
   const { error } = await supabase.auth.signUp({
     email: formData.email,
     password: formData.password,
     options: {
-      emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${process.env.SUPABASE_URL}/dashboard`,
+      emailRedirectTo: redirectUrl, // ใช้ตัวแปรที่เตรียมไว้
       data: {
         display_name: formData.displayName,
         student_id: formData.studentId,
@@ -59,11 +64,16 @@ export async function signIn(email: string, password: string) {
 export async function resendVerificationEmail(email: string) {
   const supabase = await createClient()
 
+  // แก้ไขตรงนี้ด้วย! ให้ใช้ Logic เดียวกับ signUp
+  const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+    : "http://localhost:3000/dashboard"
+
   const { error } = await supabase.auth.resend({
     type: "signup",
     email,
     options: {
-      emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${process.env.SUPABASE_URL}/dashboard`,
+      emailRedirectTo: redirectUrl, // แก้ให้ชี้กลับมาเว็บเรา
     },
   })
 
