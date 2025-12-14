@@ -1,29 +1,60 @@
-import { createServerClient } from "@supabase/ssr"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+  const supabaseResponse = NextResponse.next({
     request,
   })
 
-  const supabase = createServerClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        supabaseResponse = NextResponse.next({
-          request,
-        })
-        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
-      },
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.Puen_TiwSUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.Puen_TiwSUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    return supabaseResponse
+  }
+
+  // Get auth tokens from cookies
+  const authToken = request.cookies.get("sb-access-token")?.value
+  const refreshToken = request.cookies.get("sb-refresh-token")?.value
+
+  const supabase = createSupabaseClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
     },
   })
 
+  // Set session if tokens exist
+  if (authToken && refreshToken) {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.setSession({
+      access_token: authToken,
+      refresh_token: refreshToken,
+    })
+
+    // If session was refreshed, update cookies
+    if (session) {
+      supabaseResponse.cookies.set("sb-access-token", session.access_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      })
+      supabaseResponse.cookies.set("sb-refresh-token", session.refresh_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      })
+    }
+  }
+
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser(authToken)
 
   const protectedPaths = ["/dashboard", "/profile", "/groups", "/documents", "/calendar"]
   const isProtectedPath = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
